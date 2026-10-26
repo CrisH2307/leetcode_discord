@@ -64,6 +64,45 @@ Safari is not supported.
 
 The toolbar popup has two toggles (show on Discord, hide problem title) and shows whether the server and Discord are connected.
 
+## Run it permanently
+
+Discord only accepts Rich Presence from a program on your own computer, through the Discord app's local connection. Vercel, GitHub Pages and other hosts cannot set it for you, so the permanent setup has two local pieces: the server runs in the background at login, and the extension is installed permanently.
+
+### Server: start at login (macOS)
+
+macOS blocks background programs from reading `Downloads`, `Desktop` and `Documents`, so move the project first:
+
+```bash
+mv ~/Downloads/leetcode-rpc ~/leetcode-rpc
+cd ~/leetcode-rpc
+# stop any `npm start` that is still running (Ctrl+C), then:
+npm run service:install
+npm run service:status
+```
+
+- It starts now, starts at every login, and restarts if it crashes. Logs go to `~/Library/Logs/leetcode-rpc.log`.
+- It uses the Node that runs the install. If you later switch Node versions (nvm), run `npm run service:install` again.
+- After editing `server/.env` or the code, run `npm run service:install` again to restart it.
+- `npm run service:uninstall` removes it.
+- If Discord is closed, the server keeps retrying and connects when Discord starts.
+
+### Extension: install permanently
+
+```bash
+npm run pack      # writes dist/leetcode-rpc-firefox-<version>.zip and dist/leetcode-rpc-chromium-<version>.zip
+```
+
+Firefox and Zen delete temporary add-ons on quit. To keep it:
+
+1. Go to addons.mozilla.org/developers and choose Submit a New Add-on.
+2. Choose "On your own" (unlisted, not public) and upload the Firefox zip.
+3. When the automatic check passes, download the signed `.xpi`.
+4. In Firefox: `about:addons`, gear icon, Install Add-on From File, pick the `.xpi`.
+
+Raise `version` in `extension/manifest.json` before each new upload, because AMO rejects a version it has already seen.
+
+Chromium browsers keep unpacked extensions across restarts, so load the `extension/` folder once.
+
 ## Behavior
 
 - The timer starts when you first open a problem in that browser tab session and survives reloads.
@@ -94,7 +133,7 @@ After updating the files, restart the server and press the reload icon on the ex
 ## Development
 
 ```bash
-npm test          # 21 tests: server API plus the real extension scripts end to end (browser APIs stubbed)
+npm test          # 29 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
 npm run rpi       # progress from docs/rpi/plan.md
 ```
 

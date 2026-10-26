@@ -24,6 +24,13 @@ Progress is read by `node scripts/rpi-status.mjs`.
 - [ ] Confirm the card in Discord with the real Application ID and art asset (needs the user's machine)
 - [ ] Confirm the LeetCode GraphQL response shape on the live site
 
+## Permanent run
+
+- [x] `scripts/service.mjs`: launchd LaunchAgent install, uninstall, status, print; refuses protected folders
+- [x] `scripts/pack.mjs`: Firefox and Chromium zips with the right manifest variant
+- [ ] Run `npm run service:install` on the Mac and confirm it survives a reboot (needs the user's machine)
+- [ ] Sign the Firefox zip on addons.mozilla.org (unlisted) and install the `.xpi` (needs the user's account)
+
 ## Later
 
 - [ ] Detect "Accepted" and show a solved state

@@ -8,6 +8,10 @@
     "start": "npm --prefix server start",
     "dry": "npm --prefix server run dry",
     "test": "npm --prefix server test",
-    "rpi": "node scripts/rpi-status.mjs"
+    "rpi": "node scripts/rpi-status.mjs",
+    "service:install": "node scripts/service.mjs install",
+    "service:uninstall": "node scripts/service.mjs uninstall",
+    "service:status": "node scripts/service.mjs status",
+    "pack": "node scripts/pack.mjs"
   }
 }

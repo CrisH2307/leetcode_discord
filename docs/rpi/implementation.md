@@ -53,3 +53,12 @@ The user has no Chrome. The browser in the screenshot looks Firefox-based (zoom 
 - Server now answers CORS preflight and sets `Access-Control-Allow-Origin` for extension origins only, so it still works if Firefox has not granted the 127.0.0.1 host permission.
 - Manifest: both `background.service_worker` (Chromium) and `background.scripts` (Firefox), plus `browser_specific_settings.gecko`. Version 0.1.1.
 - Tests: 23 pass. Not run in a real Firefox from here.
+
+## 2026-10-26 (afternoon): permanent run
+
+The user confirmed it works and asked to deploy it on GitHub or Vercel.
+
+- Not possible as asked: Rich Presence is set over the Discord app's local IPC, so the setter must run on the same machine. A cloud host cannot do it. Driving the account with a user token from a server would violate Discord's terms, so it was not built.
+- Instead: `scripts/service.mjs` installs a launchd LaunchAgent (RunAtLoad, KeepAlive) so the server runs without a terminal. It refuses to install from Downloads, Desktop or Documents because macOS blocks background processes there. It uses `process.execPath`, so nvm paths work, and it aborts if a manual server already holds port 47391.
+- `scripts/pack.mjs` builds a Firefox zip (no service_worker key) and a Chromium zip (no gecko keys) for signing or sharing.
+- Tests: 29 pass. `launchctl` and AMO signing are untested because they need the user's Mac and account.
