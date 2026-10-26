@@ -12,7 +12,7 @@ Medium
 
 Two parts:
 
-- `extension/`: Chrome extension (MV3). Reads the problem from the page and sends it to the local server.
+- `extension/`: browser extension (MV3, Chromium and Firefox). Reads the problem from the page and sends it to the local server.
 - `server/`: small Node server on `127.0.0.1:47391`. Talks to the Discord desktop app over IPC.
 
 Discord only accepts Rich Presence from a local process, which is why the server exists.
@@ -45,9 +45,22 @@ Needs Node 18 or newer and the Discord desktop app running on the same machine.
 
 ### 3. Extension
 
+**Firefox, Zen and other Firefox-based browsers** (Firefox 128 or newer):
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click Load Temporary Add-on and select `extension/manifest.json`.
+3. If a permissions prompt appears, allow it. If the popup later shows `NetworkError`, open `about:addons`, select the extension, go to Permissions and turn on access for `127.0.0.1` and `leetcode.com`.
+4. Open (or refresh) any `https://leetcode.com/problems/...` page.
+
+A temporary add-on is removed when the browser quits, so repeat steps 1 and 2 after a restart. For a permanent install, sign it as an unlisted add-on on addons.mozilla.org (free) and open the resulting `.xpi`.
+
+**Chrome, Edge, Brave, Arc:**
+
 1. Open `chrome://extensions` and turn on Developer mode.
 2. Click Load unpacked and select the `extension/` folder.
-3. Open any `https://leetcode.com/problems/...` page.
+3. Open (or refresh) any `https://leetcode.com/problems/...` page.
+
+Safari is not supported.
 
 The toolbar popup has two toggles (show on Discord, hide problem title) and shows whether the server and Discord are connected.
 
@@ -62,18 +75,18 @@ The toolbar popup has two toggles (show on Discord, hide problem title) and show
 
 ## Security
 
-The server binds to `127.0.0.1`, rejects requests whose Host header is not localhost, and rejects any request with an Origin that is not a browser extension, so a web page cannot set your presence.
+The server binds to `127.0.0.1`, rejects requests whose Host header is not localhost, and rejects any request with an Origin that is not a browser extension (`chrome-extension://`, `moz-extension://`), so a web page cannot set your presence.
 
 ## Troubleshooting
 
 Nothing shows on Discord but the server says "Connected to Discord":
 
-1. **Is the extension in the browser you are using?** An unpacked extension only exists in the browser you loaded it into, and only Chromium browsers (Chrome, Edge, Brave, Arc) accept this one. Safari, Firefox and some smaller browsers will not run it.
+1. **Is the extension in the browser you are using?** An unpacked extension only exists in the browser you loaded it into. This one runs in Chromium browsers and Firefox-based browsers, not Safari. In Firefox it is temporary and disappears when the browser quits.
 2. **Refresh the LeetCode tab** after loading or reloading the extension. Content scripts are not injected into tabs that were already open.
 3. **Open the toolbar popup.** It shows whether the server is reachable, when the server last received a presence, and the extension's last update result.
 4. **Watch the server terminal.** A working setup prints `Presence: 218. The Skyline Problem | Hard`. A line starting with `Rejected` names the reason.
 5. **Page console** (DevTools on the problem page): `[leetcode-rpc] tracking ...` means the page was read. `metadata fetch failed` means the LeetCode lookup failed.
-6. **Extension service worker console** (`chrome://extensions`, click "service worker"): `could not reach the local server` means the server is not running or the port differs.
+6. **Extension background console** (Chrome: `chrome://extensions`, click "service worker". Firefox: `about:debugging#/runtime/this-firefox`, click Inspect): `could not reach the local server` means the server is not running, the port differs, or Firefox has not granted the `127.0.0.1` permission.
 7. Discord shows each app as its own "Playing" card. Another activity such as VS Code does not replace it, but check Settings > Activity Privacy.
 
 After updating the files, restart the server and press the reload icon on the extension.
@@ -91,5 +104,5 @@ Project notes follow an RPI workflow in `docs/rpi/` (research, plan, implementat
 
 - The LeetCode GraphQL call has not been checked against the live site from here. If the card never appears, open DevTools on the problem page and look for `[leetcode-rpc] metadata fetch failed`.
 - No solved detection yet.
-- Chrome only.
-# leetcode_discord
+- The Firefox build has not been run in a real Firefox from here. Chrome-style APIs and the dual `background` keys are the parts to watch.
+- Safari is not supported.

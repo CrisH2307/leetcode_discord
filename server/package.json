@@ -1,0 +1,18 @@
+{
+  "name": "leetcode-rpc-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local bridge that turns LeetCode extension events into a Discord Rich Presence activity",
+  "scripts": {
+    "start": "node index.js",
+    "dry": "DRY_RUN=1 node index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@xhayper/discord-rpc": "^1.5.1"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "leetcode-rpc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Run these from the project root. They forward to server/ so the current directory does not matter.",
+  "scripts": {
+    "setup": "npm --prefix server install",
+    "start": "npm --prefix server start",
+    "dry": "npm --prefix server run dry",
+    "test": "npm --prefix server test",
+    "rpi": "node scripts/rpi-status.mjs"
+  }
+}
