@@ -62,3 +62,13 @@ The user confirmed it works and asked to deploy it on GitHub or Vercel.
 - Instead: `scripts/service.mjs` installs a launchd LaunchAgent (RunAtLoad, KeepAlive) so the server runs without a terminal. It refuses to install from Downloads, Desktop or Documents because macOS blocks background processes there. It uses `process.execPath`, so nvm paths work, and it aborts if a manual server already holds port 47391.
 - `scripts/pack.mjs` builds a Firefox zip (no service_worker key) and a Chromium zip (no gecko keys) for signing or sharing.
 - Tests: 29 pass. `launchctl` and AMO signing are untested because they need the user's Mac and account.
+
+## 2026-10-26 (midday): reconnect loop found in the background service
+
+Symptom from `npm run service:status`: the log showed "Connected to Discord" then "Discord disconnected, will retry" about 10 seconds later, repeating, with "Discord not reachable (Connection ended)" in between. Status stayed "connecting".
+
+Cause: `connect()` destroyed the previous client. In `@xhayper/discord-rpc`, destroying a client with an open connection closes it and emits a late `disconnected`. The handler scheduled another retry, which destroyed the new healthy client, and so on forever. "Connection ended" is the library's message for a login that was destroyed while still in progress. Once started, by any single failure, the loop sustained itself. It stayed hidden in the first manual runs because they connected once and never failed.
+
+Fix: `discord.js` tracks a generation number and ignores events from retired clients, never starts a new connection while one is healthy, and no longer waits on or listens to the old client.
+
+Test: `discord.test.js` models the library behavior. The loop test made 30 clients in 600 ms on the old code and 2 on the new code. Total 34 tests pass. Not yet confirmed against the user's real Discord.

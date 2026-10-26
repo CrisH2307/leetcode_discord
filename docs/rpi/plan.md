@@ -28,7 +28,9 @@ Progress is read by `node scripts/rpi-status.mjs`.
 
 - [x] `scripts/service.mjs`: launchd LaunchAgent install, uninstall, status, print; refuses protected folders
 - [x] `scripts/pack.mjs`: Firefox and Chromium zips with the right manifest variant
-- [ ] Run `npm run service:install` on the Mac and confirm it survives a reboot (needs the user's machine)
+- [x] Service installed on the Mac and running
+- [ ] Confirm the reconnect fix holds on the Mac (status stays "connected", no flapping in the log)
+- [ ] Confirm the service survives a reboot (needs the user's machine)
 - [ ] Sign the Firefox zip on addons.mozilla.org (unlisted) and install the `.xpi` (needs the user's account)
 
 ## Later
