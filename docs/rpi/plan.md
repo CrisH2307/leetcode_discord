@@ -40,6 +40,7 @@ Progress is read by `node scripts/rpi-status.mjs`.
 - [x] Tests (ordering, cap, budget, fallback)
 - [ ] Confirm the topic line on the real Discord card (needs the user's machine)
 - [ ] Confirm `topicTags { name }` on the live LeetCode GraphQL
+- [x] Popup diagnostics: version, site access, Grant access button
 
 ## Later
 

@@ -121,6 +121,7 @@ The server binds to `127.0.0.1`, rejects requests whose Host header is not local
 
 Nothing shows on Discord but the server says "Connected to Discord":
 
+0. **Open the toolbar popup first.** It shows the loaded version, whether site access is granted, and server state. `Site access: NOT granted` means Firefox has not given the extension access to leetcode.com, so it never sees the page. Click Grant access (or `about:addons`, the extension, Permissions, turn on both sites), then refresh the LeetCode tab. Granting is often lost when a temporary add-on is removed and loaded again.
 1. **Is the extension in the browser you are using?** An unpacked extension only exists in the browser you loaded it into. This one runs in Chromium browsers and Firefox-based browsers, not Safari. In Firefox it is temporary and disappears when the browser quits.
 2. **Refresh the LeetCode tab** after loading or reloading the extension. Content scripts are not injected into tabs that were already open.
 3. **Open the toolbar popup.** It shows whether the server is reachable, when the server last received a presence, and the extension's last update result.
@@ -129,12 +130,12 @@ Nothing shows on Discord but the server says "Connected to Discord":
 6. **Extension background console** (Chrome: `chrome://extensions`, click "service worker". Firefox: `about:debugging#/runtime/this-firefox`, click Inspect): `could not reach the local server` means the server is not running, the port differs, or Firefox has not granted the `127.0.0.1` permission.
 7. Discord shows each app as its own "Playing" card. Another activity such as VS Code does not replace it, but check Settings > Activity Privacy.
 
-After updating the files, restart the server and press the reload icon on the extension.
+After updating the files, restart the server and press the reload icon on the extension. A temporary add-on is tied to the folder it was loaded from: if the project folder moved, remove the add-on and load `extension/manifest.json` from the new location, otherwise the browser keeps running the old copy. The popup's Version line shows which copy is loaded.
 
 ## Development
 
 ```bash
-npm test          # 43 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
+npm test          # 47 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
 npm run rpi       # progress from docs/rpi/plan.md
 ```
 

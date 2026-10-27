@@ -82,3 +82,21 @@ Request: show the main topics (Heap, Priority Queue, ...) on the card, short, be
 - The server needed no change: `state` already allows 128 characters.
 - Tests: 9 new chain tests (ordering, cap, shortening, budget, no tags, toggle, field-rejected fallback). 43 pass.
 - Not verified: the `topicTags` shape on the live LeetCode GraphQL, and how Discord truncates the line on the real profile card. Manifest version 0.1.2.
+
+## 2026-10-26 (night): card still missing after the topics update
+
+Symptom: reloaded the extension, still no card. Page URL (`/problems/<slug>/submissions/<id>/`) matches the slug pattern, so the page is not the problem.
+
+Likely causes, both environment side and unconfirmed:
+- Firefox MV3 does not grant host permissions at install. Without them the content script is never injected into leetcode.com. Grants are often lost when a temporary add-on is removed and loaded again.
+- The temporary add-on entry still points to the deleted `~/Downloads/leetcode-rpc/extension`, so Reload fails and the browser keeps old code.
+
+Change (v0.1.3): the popup now shows the loaded Version and `Site access: granted / NOT granted`, with a Grant access button that calls `permissions.request` for leetcode.com and 127.0.0.1:47391. `popup.test.js` (4 tests, real popup.js with a DOM stub) covers it. Total 47 pass.
+
+## 2026-10-26 (night, later): server found stopped
+
+The popup (v0.1.3) showed Site access granted and NetworkError on every request, so the extension was fine and the server was down. The log showed the server did receive `Presence: 973. K Closest Points to Origin | Medium` at 8:51 and 8:59 PM, then nothing: no crash trace (stderr goes to the same log) and no restart line, so the process was stopped or unloaded from launchd, not crashed.
+
+Change: `server/index.js` now logs `Stopping (SIGTERM|SIGINT)` and logs unhandled rejections instead of dying. Next time a silent stop will explain itself. Recovery is `npm run service:install`.
+
+Known behavior to decide on: the content script only sends heartbeats while the tab is visible, and Firefox reports a fully covered window as hidden. After 90 s without a heartbeat the card clears (seen at 8:56:53 PM).
