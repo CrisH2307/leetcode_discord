@@ -1,8 +1,68 @@
 // Service worker. The content script cannot call localhost directly (page CORS applies to it),
 // so every request to the local server goes through here.
 const SERVER = 'http://127.0.0.1:47391';
-const DEFAULTS = { enabled: true, hideTitle: false };
+const DEFAULTS = { enabled: true, hideTitle: false, showTopics: true };
 const LAST_MAX_AGE_MS = 120_000;
+
+// Topics go on the second line next to the difficulty ("Hard · Heap/PQ, Segment Tree").
+// Discord cuts long lines with "...", so the topic list is built within a character budget
+// instead of listing every tag a problem has.
+const MAX_TOPICS = 3;
+const TOPICS_BUDGET = 30; // characters for the topic names, "Hard · " not included
+const SEPARATOR = ' · ';
+
+// Core technique or data structure tags. When a problem has several tags, these are shown first.
+const PRIORITY_TOPICS = [
+  'Heap (Priority Queue)', 'Segment Tree', 'Trie', 'Union Find', 'Monotonic Stack', 'Monotonic Queue',
+  'Dynamic Programming', 'Backtracking', 'Sliding Window', 'Two Pointers', 'Binary Search',
+  'Topological Sort', 'Graph', 'Greedy',
+];
+
+// Long LeetCode tag names -> short forms. Add your own here.
+const SHORT_TOPIC = {
+  'Heap (Priority Queue)': 'Heap/PQ',
+  'Dynamic Programming': 'DP',
+  'Divide and Conquer': 'Divide & Conquer',
+  'Binary Indexed Tree': 'BIT',
+  'Binary Search Tree': 'BST',
+  'Depth-First Search': 'DFS',
+  'Breadth-First Search': 'BFS',
+  'Doubly-Linked List': 'Linked List',
+  'Bit Manipulation': 'Bit Manip',
+  'Topological Sort': 'Topo Sort',
+  'Monotonic Stack': 'Mono Stack',
+  'Monotonic Queue': 'Mono Queue',
+};
+
+// Tags that describe almost every problem. They only fill the line when nothing more specific exists.
+const GENERIC_TOPICS = new Set([
+  'Array', 'String', 'Math', 'Matrix', 'Simulation', 'Enumeration', 'Counting', 'Sorting',
+]);
+
+function pickTopics(topics) {
+  if (!Array.isArray(topics)) return [];
+  const core = PRIORITY_TOPICS.filter((t) => topics.includes(t));
+  const specific = topics.filter((t) => !core.includes(t) && !GENERIC_TOPICS.has(t));
+  const generic = topics.filter((t) => GENERIC_TOPICS.has(t));
+  const ranked = [...core, ...specific, ...generic].map((t) => SHORT_TOPIC[t] ?? t);
+
+  const picked = [];
+  let length = 0;
+  for (const name of ranked) {
+    if (picked.length === MAX_TOPICS) break;
+    const next = length + (picked.length ? 2 : 0) + name.length; // ", " between names
+    if (picked.length > 0 && next > TOPICS_BUDGET) continue; // try a shorter one further down
+    picked.push(name);
+    length = next;
+  }
+  return picked;
+}
+
+function composeState(msg, settings) {
+  const topics = settings.showTopics ? pickTopics(msg.topics) : [];
+  if (!topics.length) return msg.difficulty;
+  return `${msg.difficulty}${SEPARATOR}${topics.join(', ')}`;
+}
 
 // storage.session is missing in some Chromium-based browsers; fall back to local storage.
 const scratch = chrome.storage.session ?? chrome.storage.local;
@@ -28,7 +88,7 @@ async function recordStatus(ok, detail = '') {
 function compose(msg, settings) {
   const payload = {
     details: settings.hideTitle ? 'Solving a problem' : `${msg.number}. ${msg.title}`,
-    state: msg.difficulty,
+    state: composeState(msg, settings),
     startedAt: msg.startedAt,
   };
   if (!settings.hideTitle) payload.url = msg.url;

@@ -1,8 +1,9 @@
 const SERVER = 'http://127.0.0.1:47391';
-const DEFAULTS = { enabled: true, hideTitle: false };
+const DEFAULTS = { enabled: true, hideTitle: false, showTopics: true };
 
 const enabled = document.getElementById('enabled');
 const hideTitle = document.getElementById('hideTitle');
+const showTopics = document.getElementById('showTopics');
 const status = document.getElementById('status');
 
 function line(label, value) {
@@ -42,6 +43,8 @@ async function init() {
   const settings = await chrome.storage.sync.get(DEFAULTS);
   enabled.checked = settings.enabled;
   hideTitle.checked = settings.hideTitle;
+  showTopics.checked = settings.showTopics;
+  showTopics.addEventListener('change', () => chrome.storage.sync.set({ showTopics: showTopics.checked }));
   enabled.addEventListener('change', () => chrome.storage.sync.set({ enabled: enabled.checked }));
   hideTitle.addEventListener('change', () => chrome.storage.sync.set({ hideTitle: hideTitle.checked }));
   await render();

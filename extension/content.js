@@ -5,7 +5,11 @@
   const SLUG_RE = /^\/problems\/([a-z0-9-]+)(?:\/|$)/;
   const HEARTBEAT_MS = 20_000;
   const RETRY_META_MS = 10_000;
-  const QUERY =
+  // The first query also asks for topic tags. If LeetCode ever rejects that field, the second one
+  // keeps the card working (without topics) instead of breaking it.
+  const QUERY_WITH_TOPICS =
+    'query q($titleSlug: String!) { question(titleSlug: $titleSlug) { questionFrontendId title difficulty topicTags { name } } }';
+  const QUERY_BASIC =
     'query q($titleSlug: String!) { question(titleSlug: $titleSlug) { questionFrontendId title difficulty } }';
 
   const metaCache = new Map();
@@ -27,21 +31,32 @@
     }
   }
 
-  async function fetchMeta(slug) {
-    if (metaCache.has(slug)) return metaCache.get(slug);
+  async function queryQuestion(query, slug) {
     const res = await fetch('https://leetcode.com/graphql', {
       method: 'POST',
       credentials: 'include',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ query: QUERY, variables: { titleSlug: slug } }),
+      body: JSON.stringify({ query, variables: { titleSlug: slug } }),
     });
     if (!res.ok) throw new Error(`graphql ${res.status}`);
-    const question = (await res.json())?.data?.question;
+    return (await res.json())?.data?.question ?? null;
+  }
+
+  async function fetchMeta(slug) {
+    if (metaCache.has(slug)) return metaCache.get(slug);
+    let question = null;
+    try {
+      question = await queryQuestion(QUERY_WITH_TOPICS, slug);
+    } catch {
+      // fall through to the basic query
+    }
+    if (!question) question = await queryQuestion(QUERY_BASIC, slug);
     if (!question) throw new Error('question not found');
     const meta = {
       number: Number(question.questionFrontendId),
       title: question.title,
       difficulty: question.difficulty,
+      topics: Array.isArray(question.topicTags) ? question.topicTags.map((t) => t?.name).filter(Boolean) : [],
     };
     metaCache.set(slug, meta);
     return meta;
@@ -88,7 +103,7 @@
       if (Date.now() - current.lastSent < HEARTBEAT_MS) return;
 
       if (current.lastSent === 0) {
-        console.log(`[leetcode-rpc] tracking ${current.meta.number}. ${current.meta.title} (${current.meta.difficulty})`);
+        console.log(`[leetcode-rpc] tracking ${current.meta.number}. ${current.meta.title} (${current.meta.difficulty}) [${current.meta.topics.join(', ')}]`);
       }
       current.lastSent = Date.now();
       send({
@@ -97,6 +112,7 @@
         number: current.meta.number,
         title: current.meta.title,
         difficulty: current.meta.difficulty,
+        topics: current.meta.topics,
         startedAt: current.startedAt,
         url: `https://leetcode.com/problems/${slug}/`,
       });
