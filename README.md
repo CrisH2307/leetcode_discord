@@ -6,7 +6,7 @@ Shows the problem you are working on as your Discord activity:
 Playing
 LeetCode
 218. The Skyline Problem
-Hard · Heap/PQ, Segment Tree, BIT
+Hard - Heap/PQ, Segment Tree, BIT
 00:12:41
 ```
 
