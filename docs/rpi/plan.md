@@ -33,6 +33,14 @@ Progress is read by `node scripts/rpi-status.mjs`.
 - [ ] Confirm the service survives a reboot (needs the user's machine)
 - [ ] Sign the Firefox zip on addons.mozilla.org (unlisted) and install the `.xpi` (needs the user's account)
 
+## Topics
+
+- [x] Fetch `topicTags`, rank, shorten, cap, show on the state line
+- [x] Popup toggle `showTopics`
+- [x] Tests (ordering, cap, budget, fallback)
+- [ ] Confirm the topic line on the real Discord card (needs the user's machine)
+- [ ] Confirm `topicTags { name }` on the live LeetCode GraphQL
+
 ## Later
 
 - [ ] Detect "Accepted" and show a solved state

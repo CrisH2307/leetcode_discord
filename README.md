@@ -5,8 +5,8 @@ Shows the problem you are working on as your Discord activity:
 ```
 Playing
 LeetCode
-1. Two Sum
-Medium
+218. The Skyline Problem
+Hard · Heap/PQ, Segment Tree, BIT
 00:12:41
 ```
 
@@ -62,7 +62,7 @@ A temporary add-on is removed when the browser quits, so repeat steps 1 and 2 af
 
 Safari is not supported.
 
-The toolbar popup has two toggles (show on Discord, hide problem title) and shows whether the server and Discord are connected.
+The toolbar popup has three toggles (show on Discord, hide problem title, show topics) and shows whether the server and Discord are connected.
 
 ## Run it permanently
 
@@ -110,6 +110,7 @@ Chromium browsers keep unpacked extensions across restarts, so load the `extensi
 - If the server stops receiving heartbeats for 90 seconds (tab hidden, browser closed) the card is cleared.
 - Contest pages are ignored on purpose.
 - Hide problem title shows "Solving a problem" plus the difficulty.
+- Topics: the second line is the difficulty plus up to 3 of the problem's LeetCode tags, kept within about 30 characters so Discord does not cut the line. Core tags (Heap, Segment Tree, DP, Two Pointers, ...) come first, generic ones (Array, String, Math, ...) only fill the gap, and long names are shortened (`Heap (Priority Queue)` becomes `Heap/PQ`). The short names, the core list and the limits are constants at the top of `extension/background.js`. Turn it off with the "Show topics" toggle.
 - `SHOW_BUTTON=1` adds an "Open problem" button that other people can see.
 
 ## Security
@@ -133,7 +134,7 @@ After updating the files, restart the server and press the reload icon on the ex
 ## Development
 
 ```bash
-npm test          # 29 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
+npm test          # 43 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
 npm run rpi       # progress from docs/rpi/plan.md
 ```
 

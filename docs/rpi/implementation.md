@@ -72,3 +72,13 @@ Cause: `connect()` destroyed the previous client. In `@xhayper/discord-rpc`, des
 Fix: `discord.js` tracks a generation number and ignores events from retired clients, never starts a new connection while one is healthy, and no longer waits on or listens to the old client.
 
 Test: `discord.test.js` models the library behavior. The loop test made 30 clients in 600 ms on the old code and 2 on the new code. Total 34 tests pass. Not yet confirmed against the user's real Discord.
+
+## 2026-10-26 (evening): topics on the card
+
+Request: show the main topics (Heap, Priority Queue, ...) on the card, short, because some problems have many tags.
+
+- `content.js` asks GraphQL for `topicTags { name }` and sends `topics`. If LeetCode rejects that field, it retries with the basic query so the card still works without topics.
+- `background.js` builds the second line: `Hard · Heap/PQ, Segment Tree, BIT`. Rules: at most 3 topics, about 30 characters for the topic names (tags that do not fit are skipped for a shorter one further down), core technique tags first, generic tags (Array, String, Math, ...) last, long names shortened through a map. Toggle `showTopics` (default on) in the popup, applied immediately.
+- The server needed no change: `state` already allows 128 characters.
+- Tests: 9 new chain tests (ordering, cap, shortening, budget, no tags, toggle, field-rejected fallback). 43 pass.
+- Not verified: the `topicTags` shape on the live LeetCode GraphQL, and how Discord truncates the line on the real profile card. Manifest version 0.1.2.
