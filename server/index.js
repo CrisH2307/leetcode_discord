@@ -46,9 +46,14 @@ app.listen(port, '127.0.0.1', () => {
   presence.connect();
 });
 
+// A stray rejection from the Discord library must not take the whole server down.
+process.on('unhandledRejection', (reason) => log(`Unhandled rejection: ${reason?.stack ?? reason}`));
+
+// Say why the process stopped, so a silent stop is visible in the log.
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, async () => {
-    await presence.clear();
+    log(`Stopping (${signal})`);
+    await Promise.race([presence.clear(), new Promise((r) => setTimeout(r, 1500))]);
     process.exit(0);
   });
 }

@@ -15,8 +15,39 @@ function line(label, value) {
   return row;
 }
 
+// Firefox (Manifest V3) does not grant host permissions at install. Without them the content
+// script is never injected into leetcode.com, so nothing ever reaches the server.
+const ORIGINS = ['https://leetcode.com/*', 'http://127.0.0.1:47391/*'];
+
+async function hasAccess() {
+  try {
+    return await chrome.permissions.contains({ origins: ORIGINS });
+  } catch {
+    return true; // API missing: assume the browser granted them at install
+  }
+}
+
+function grantButton() {
+  const button = document.createElement('button');
+  button.textContent = 'Grant access';
+  button.addEventListener('click', async () => {
+    try {
+      await chrome.permissions.request({ origins: ORIGINS });
+    } catch (err) {
+      console.warn('[leetcode-rpc] permission request failed:', err?.message ?? err);
+    }
+    await render();
+  });
+  return button;
+}
+
 async function render() {
   const rows = [];
+
+  rows.push(line('Version', chrome.runtime.getManifest().version));
+  const granted = await hasAccess();
+  rows.push(line('Site access', granted ? 'granted' : 'NOT granted, the extension cannot see LeetCode'));
+  if (!granted) rows.push(grantButton());
 
   try {
     const res = await fetch(`${SERVER}/health`);
