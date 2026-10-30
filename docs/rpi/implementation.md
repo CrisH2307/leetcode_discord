@@ -109,3 +109,19 @@ Request (from a friend's suggestion): make the question linkable.
 - `LINK_PROBLEM=0` in `server/.env` turns it off. Hide title sends no URL, so no link either. `SHOW_BUTTON=1` stays available as the fallback.
 - Tests: 4 new (links present, off switch, no link without a valid URL, title-only without image asset). 51 pass.
 - Not verified: that the user's Discord client renders and opens the links. Needs the user's machine. Requires `npm run service:install` to restart the server.
+
+## 2026-10-29 (night): presence dropping every minute or two
+
+Evidence: `~/Library/Logs/leetcode-rpc.log` (about 465 lines, several days).
+
+1. About 40 `No heartbeat, clearing presence` lines, almost always 90 to 96 seconds after a `Presence:` line. The content script only sent heartbeats while the tab was visible, so one heartbeat when the tab was shown, then silence while the editor covered the browser, then the 90 second server timeout cleared the card.
+2. `Presence cleared` followed within a second by `Presence:` for the same or another problem: several LeetCode tabs. One tab leaving a problem or closing sent a clear that wiped the card another tab owned.
+3. `Discord error:` with an empty message after every set and clear, until the server was restarted by hand. The library throws `NOT_CONNECTED` and `CONNECTION_ENDED` errors with an empty message when its socket is dead. The server never got a `disconnected` event, so it kept `ready = true` and kept failing. The `Discord disconnected, will retry` bursts every 2 to 5 minutes (Discord closing the socket) are handled but cost up to 20 seconds each.
+4. The restart at 10:56:04 PM (`Stopping (SIGTERM)`) was not followed by `Listening` for at least two minutes. `service:install` called `bootstrap` right after `bootout`, which can fail with an input/output error because the old job is still unloading.
+
+Fixes (extension 0.1.4):
+- `content.js`: heartbeats continue while the tab is hidden (limit 3 hours hidden), messages carry a per tab `source` and a `visible` flag, the tab becoming visible sends at once.
+- `background.js`: the newest sender owns the card for 75 seconds after its last heartbeat. Hidden tabs cannot take it from another tab, clears from a non owner are ignored, and a stale owner is replaced.
+- `discord.js`: a connection error while sending marks the connection dead, reconnects within 2 seconds and applies the wanted activity again. Rejected content (a real error message) does not drop the connection. The error log now names the error.
+- `scripts/service.mjs`: install waits until the old job is unloaded and retries `bootstrap`.
+- Tests: 10 new (61 total).

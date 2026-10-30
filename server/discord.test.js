@@ -7,10 +7,12 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { createPresence } from './discord.js';
 
-function makeFakeClient({ failFirst = 0, timeoutFirst = 0 } = {}) {
+function makeFakeClient({ failFirst = 0, timeoutFirst = 0, deadSends = 0, rejectSends = 0 } = {}) {
   const instances = [];
   let failures = failFirst;
   let timeouts = timeoutFirst;
+  let dead = deadSends; // sends that fail like a silently dead socket (empty message)
+  let rejected = rejectSends; // sends Discord rejects with a real message
 
   class FakeClient extends EventEmitter {
     constructor() {
@@ -20,7 +22,17 @@ function makeFakeClient({ failFirst = 0, timeoutFirst = 0 } = {}) {
       this.activities = [];
       this.user = {
         username: 'me',
-        setActivity: async (a) => this.activities.push(a),
+        setActivity: async (a) => {
+          if (dead > 0) {
+            dead -= 1;
+            throw Object.assign(new Error(''), { name: 'NOT_CONNECTED' });
+          }
+          if (rejected > 0) {
+            rejected -= 1;
+            throw new Error('Invalid payload');
+          }
+          this.activities.push(a);
+        },
         clearActivity: async () => this.activities.push(null),
       };
       instances.push(this);
@@ -112,4 +124,36 @@ test('the wanted activity survives a timeout and reconnect', async () => {
   await presence.set({ details: '218. The Skyline Problem' });
   await wait(300);
   assert.deepEqual(instances.at(-1).activities.at(-1), { details: '218. The Skyline Problem' });
+});
+
+test('a silently dead connection is replaced and the activity is applied again', async () => {
+  const { presence, instances } = make({ deadSends: 1 });
+  await presence.connect();
+  await wait(50);
+  await presence.set({ details: '45. Jump Game II' }); // fails: socket is dead
+  await wait(300);
+  assert.equal(presence.status(), 'connected');
+  assert.equal(instances.length, 2);
+  assert.deepEqual(instances.at(-1).activities.at(-1), { details: '45. Jump Game II' });
+});
+
+test('a rejected payload does not drop the connection', async () => {
+  const { presence, instances } = make({ rejectSends: 1 });
+  await presence.connect();
+  await wait(50);
+  await presence.set({ details: 'x' }); // Discord says no
+  await wait(100);
+  assert.equal(presence.status(), 'connected');
+  assert.equal(instances.length, 1);
+});
+
+test('repeated dead sends reconnect one at a time, not in a storm', async () => {
+  const { presence, instances } = make({ deadSends: 3 });
+  await presence.connect();
+  await wait(50);
+  await presence.set({ details: 'a' });
+  await wait(600);
+  assert.equal(presence.status(), 'connected');
+  assert.ok(instances.length <= 5, `made ${instances.length} clients`);
+  assert.deepEqual(instances.at(-1).activities.at(-1), { details: 'a' });
 });

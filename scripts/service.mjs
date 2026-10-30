@@ -131,7 +131,14 @@ async function install(force) {
   writeFileSync(p.plistFile, renderPlist({ node: process.execPath, serverDir: p.serverDir, logFile: p.logFile }));
 
   launchctl(['bootout', `${p.domain}/${LABEL}`]); // fine if it was not loaded
-  const boot = launchctl(['bootstrap', p.domain, p.plistFile]);
+  // bootout returns before launchd has finished unloading. Bootstrapping straight away can fail
+  // with "Input/output error" and leave nothing running, so wait for the old job to be gone first.
+  for (let i = 0; i < 40 && launchctl(['print', `${p.domain}/${LABEL}`]).ok; i += 1) await sleep(250);
+  let boot = launchctl(['bootstrap', p.domain, p.plistFile]);
+  for (let attempt = 0; attempt < 5 && !boot.ok; attempt += 1) {
+    await sleep(1000);
+    boot = launchctl(['bootstrap', p.domain, p.plistFile]);
+  }
   if (!boot.ok) fail(`launchctl could not load the service:\n${boot.out}`);
   launchctl(['kickstart', '-k', `${p.domain}/${LABEL}`]);
 

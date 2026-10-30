@@ -107,7 +107,10 @@ Chromium browsers keep unpacked extensions across restarts, so load the `extensi
 
 - The timer starts when you first open a problem in that browser tab session and survives reloads.
 - Switching problems updates the card. Leaving a problem page clears it.
-- If the server stops receiving heartbeats for 90 seconds (tab hidden, browser closed) the card is cleared.
+- The card stays up while a problem tab is open, even when the tab is not visible (your editor covers the browser, or you selected another tab). It stops after 3 hours of the tab not being looked at, and it is cleared when you close the tab or leave the problem.
+- With several problem tabs open, the tab you looked at last owns the card. A background tab never takes it over, and leaving a problem in one tab does not clear the card of another. If the owner tab goes away, a background problem tab takes over.
+- If the server stops receiving heartbeats for 90 seconds (browser closed, tab discarded, computer asleep) the card is cleared.
+- If the connection to Discord dies without notice (Discord restarted, computer slept) the server notices on the next update and reconnects within a few seconds.
 - Contest pages are ignored on purpose.
 - Hide problem title shows "Solving a problem" plus the difficulty.
 - Topics: the second line is the difficulty plus up to 3 of the problem's LeetCode tags, kept within about 30 characters so Discord does not cut the line. Core tags (Heap, Segment Tree, DP, Two Pointers, ...) come first, generic ones (Array, String, Math, ...) only fill the gap, and long names are shortened (`Heap (Priority Queue)` becomes `Heap/PQ`). The short names, the core list and the limits are constants at the top of `extension/background.js`. Turn it off with the "Show topics" toggle.
@@ -136,7 +139,7 @@ After updating the files, restart the server and press the reload icon on the ex
 ## Development
 
 ```bash
-npm test          # 51 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
+npm test          # 61 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
 npm run rpi       # progress from docs/rpi/plan.md
 ```
 

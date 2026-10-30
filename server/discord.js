@@ -1,6 +1,14 @@
 import { Client } from '@xhayper/discord-rpc';
 
 const RETRY_MS = 10_000;
+const FAST_RETRY_MS = 2_000; // after a dead connection is noticed while sending
+
+// Errors that mean "the connection is gone", as opposed to Discord rejecting the content.
+// The library throws these with an empty message, which used to show up as a bare "Discord error:".
+function isConnectionError(err) {
+  if (!err?.message) return true;
+  return /not.?connected|connection (ended|closed|timed out)|timed out/i.test(`${err.name} ${err.message}`);
+}
 
 /**
  * Wraps the Discord IPC client. Holds the activity we want shown and applies it
@@ -27,16 +35,31 @@ export function createPresence({ clientId, dryRun, log, ClientClass = Client, re
       if (desired) await client.user.setActivity(desired);
       else await client.user.clearActivity();
     } catch (err) {
-      log(`Discord error: ${err.message}`);
+      const label = [err?.name, err?.message].filter((part) => part && part !== 'Error').join(': ') || String(err);
+      log(`Discord error: ${label}`);
+      if (isConnectionError(err)) connectionLost(label);
     }
   }
 
-  function scheduleRetry() {
+  function scheduleRetry(delay = retryMs) {
     if (retryTimer) return;
     retryTimer = setTimeout(() => {
       retryTimer = null;
       connect();
-    }, retryMs);
+    }, delay);
+  }
+
+  // The socket died without a "disconnected" event (Discord restarted, laptop slept). Without this
+  // the server believed it was connected and every update failed until it was restarted by hand.
+  function connectionLost(why) {
+    if (!ready) return;
+    ready = false;
+    generation += 1; // ignore anything the dead client still emits
+    const dead = client;
+    client = null;
+    dead?.destroy().catch(() => {});
+    log(`Discord connection lost (${why}), reconnecting`);
+    scheduleRetry(Math.min(retryMs, FAST_RETRY_MS));
   }
 
   async function connect() {

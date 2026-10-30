@@ -5,6 +5,10 @@
   const SLUG_RE = /^\/problems\/([a-z0-9-]+)(?:\/|$)/;
   const HEARTBEAT_MS = 20_000;
   const RETRY_META_MS = 10_000;
+  // A tab that is open but not visible (browser covered by your editor, or another tab selected)
+  // keeps the card alive. After this long without being looked at it stops, so a forgotten tab
+  // does not show on Discord forever.
+  const HIDDEN_LIMIT_MS = 3 * 60 * 60 * 1000;
   // The first query also asks for topic tags. If LeetCode ever rejects that field, the second one
   // keeps the card working (without topics) instead of breaking it.
   const QUERY_WITH_TOPICS =
@@ -12,11 +16,16 @@
   const QUERY_BASIC =
     'query q($titleSlug: String!) { question(titleSlug: $titleSlug) { questionFrontendId title difficulty } }';
 
+  // Identifies this tab, so the background script can tell which tab owns the card.
+  const source = (typeof crypto !== 'undefined' && crypto.randomUUID?.()) || `tab-${Math.random().toString(36).slice(2)}`;
+
   const metaCache = new Map();
   let current = null; // { slug, startedAt, meta, lastSent, metaFailedAt }
   let busy = false;
+  let hiddenSince = 0;
 
   const slugFromLocation = () => location.pathname.match(SLUG_RE)?.[1] ?? null;
+  const isVisible = () => document.visibilityState === 'visible';
 
   function startTimeFor(slug) {
     const key = `lcrpc:start:${slug}`;
@@ -64,7 +73,7 @@
 
   function send(message) {
     try {
-      chrome.runtime.sendMessage(message).catch(() => {});
+      chrome.runtime.sendMessage({ ...message, source }).catch(() => {});
     } catch {
       // extension was reloaded; this page needs a refresh
     }
@@ -99,7 +108,11 @@
         if (slugFromLocation() !== slug) return; // navigated away while fetching
       }
 
-      if (document.visibilityState !== 'visible') return;
+      const visible = isVisible();
+      if (visible) hiddenSince = 0;
+      else if (!hiddenSince) hiddenSince = Date.now();
+      if (!visible && Date.now() - hiddenSince > HIDDEN_LIMIT_MS) return;
+
       if (Date.now() - current.lastSent < HEARTBEAT_MS) return;
 
       if (current.lastSent === 0) {
@@ -115,6 +128,7 @@
         topics: current.meta.topics,
         startedAt: current.startedAt,
         url: `https://leetcode.com/problems/${slug}/`,
+        visible,
       });
     } finally {
       busy = false;
@@ -122,7 +136,12 @@
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && current) current.lastSent = 0;
+    if (isVisible()) {
+      hiddenSince = 0;
+      if (current) current.lastSent = 0; // take over the card right away
+    } else {
+      hiddenSince = Date.now();
+    }
   });
   window.addEventListener('pagehide', () => send({ type: 'clear' }));
 

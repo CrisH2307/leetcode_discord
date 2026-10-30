@@ -3,6 +3,10 @@
 const SERVER = 'http://127.0.0.1:47391';
 const DEFAULTS = { enabled: true, hideTitle: false, showTopics: true };
 const LAST_MAX_AGE_MS = 120_000;
+// Several LeetCode tabs can be open. The tab that sent the newest presence owns the card. It stays
+// the owner while its heartbeats keep arriving (they come every 20 s, and hidden tabs can be
+// throttled to about once a minute).
+const OWNER_FRESH_MS = 75_000;
 
 // Topics go on the second line next to the difficulty ("Hard · Heap/PQ, Segment Tree").
 // Discord cuts long lines with "...", so the topic list is built within a character budget
@@ -101,12 +105,22 @@ async function publish(msg) {
   return post('/presence', compose(msg, settings));
 }
 
+// True when another tab sent the card recently, so it still owns it.
+async function ownedByAnotherTab(msg) {
+  const { last } = await scratch.get('last');
+  return Boolean(last && last.msg.source !== msg.source && Date.now() - last.at < OWNER_FRESH_MS);
+}
+
 async function handle(msg) {
   try {
     if (msg.type === 'clear') {
+      // A tab that does not own the card (another problem, or a closed background tab) must not wipe it.
+      if (await ownedByAnotherTab(msg)) return;
       await scratch.remove('last');
       await post('/clear');
     } else if (msg.type === 'presence') {
+      // A background tab never takes the card from another tab. A visible tab always does.
+      if (!msg.visible && (await ownedByAnotherTab(msg))) return;
       await scratch.set({ last: { msg, at: Date.now() } });
       await publish(msg);
     } else {

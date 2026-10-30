@@ -70,7 +70,8 @@ function makeStorage(initial = {}) {
   };
 }
 
-function boot({ pathname, syncSettings = {}, withSessionStorage = true, question = SKYLINE }) {
+// One browser: the background script plus its storage. Several tabs can attach to it.
+function makeBrowser({ syncSettings = {}, withSessionStorage = true, clock = { now: () => Date.now() } } = {}) {
   const listeners = [];
   const changeListeners = [];
   const sync = makeStorage(syncSettings);
@@ -86,19 +87,31 @@ function boot({ pathname, syncSettings = {}, withSessionStorage = true, question
     },
   };
   if (withSessionStorage) chrome.storage.session = makeStorage();
+  const fakeDate = { now: () => clock.now() };
+  vm.runInContext(read('background.js'), vm.createContext({ chrome, fetch: extensionFetch, console, Date: fakeDate }));
+  return { chrome, sync, changeListeners, clock, fakeDate };
+}
 
-  vm.runInContext(read('background.js'), vm.createContext({ chrome, fetch: extensionFetch, console }));
-
+// One LeetCode tab running the real content script.
+function openTab(browser, { pathname, question = SKYLINE, visible = true }) {
   const intervals = [];
+  const visibility = { state: visible ? 'visible' : 'hidden' };
+  const handlers = {};
   const location = { pathname };
   const store = new Map();
   const content = vm.createContext({
-    chrome,
+    chrome: browser.chrome,
     location,
     console,
-    document: { visibilityState: 'visible', addEventListener() {} },
+    document: {
+      get visibilityState() {
+        return visibility.state;
+      },
+      addEventListener: (type, fn) => (handlers[type] = fn),
+    },
     window: { addEventListener() {} },
     sessionStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) },
+    Date: browser.fakeDate,
     fetch: async (_url, init) => {
       const query = JSON.parse(init.body).query;
       const result = typeof question === 'function' ? question(query) : question;
@@ -107,14 +120,25 @@ function boot({ pathname, syncSettings = {}, withSessionStorage = true, question
     setInterval: (fn) => intervals.push(fn),
   });
   vm.runInContext(read('content.js'), content);
-
   return {
-    chrome,
     location,
     tick: () => Promise.all(intervals.map((fn) => fn())),
+    setVisible: (value) => {
+      visibility.state = value ? 'visible' : 'hidden';
+      handlers.visibilitychange?.();
+    },
+  };
+}
+
+function boot({ pathname, syncSettings = {}, withSessionStorage = true, question = SKYLINE, visible = true }) {
+  const browser = makeBrowser({ syncSettings, withSessionStorage });
+  const tab = openTab(browser, { pathname, question, visible });
+  return {
+    ...tab,
+    chrome: browser.chrome,
     changeSettings: async (patch) => {
-      Object.assign(sync.data, patch);
-      for (const fn of changeListeners) await fn({}, 'sync');
+      Object.assign(browser.sync.data, patch);
+      for (const fn of browser.changeListeners) await fn({}, 'sync');
     },
   };
 }
@@ -255,4 +279,123 @@ test('if LeetCode rejects the topic field the card still works without topics', 
   const state = await stateFor(rejectTopics);
   assert.equal(state, 'Hard');
   assert.equal(calls[0][1].details, '218. The Skyline Problem');
+});
+
+// ---- hidden tabs and several tabs --------------------------------------------------------------
+
+
+test('a tab that is open but hidden keeps the card alive', async () => {
+  const clock = { t: Date.now(), now() { return this.t; } };
+  const browser = makeBrowser({ clock });
+  const tab = openTab(browser, { pathname: '/problems/the-skyline-problem/', visible: false });
+  await settle();
+  assert.equal(calls.length, 1, 'a hidden tab should still send its first presence');
+
+  clock.t += 25_000; // next heartbeat is due
+  await tab.tick();
+  await settle();
+  // identical payload, so the server does not resend it, but it must refresh the server clock
+  assert.equal(calls.length, 1);
+  const health = await extensionFetch('http://127.0.0.1:47391/health').then((r) => r.json());
+  assert.equal(health.active, true);
+});
+
+test('a hidden tab stops after the idle limit', async () => {
+  const clock = { t: Date.now(), now() { return this.t; } };
+  const browser = makeBrowser({ clock });
+  const tab = openTab(browser, { pathname: '/problems/the-skyline-problem/', visible: true });
+  await settle();
+  tab.setVisible(false);
+  await tab.tick();
+
+  let heartbeats = 0;
+  const original = browser.chrome.runtime.sendMessage;
+  browser.chrome.runtime.sendMessage = (msg) => {
+    if (msg.type === 'presence') heartbeats += 1;
+    return original(msg);
+  };
+
+  clock.t += 2 * 60 * 60 * 1000;
+  await tab.tick();
+  assert.equal(heartbeats, 1, 'still alive after 2 hours hidden');
+
+  clock.t += 2 * 60 * 60 * 1000; // 4 hours hidden in total
+  await tab.tick();
+  assert.equal(heartbeats, 1, 'stopped after the 3 hour limit');
+
+  tab.setVisible(true); // looking at it again resumes immediately
+  await tab.tick();
+  assert.equal(heartbeats, 2);
+});
+
+test('a hidden tab does not take the card from the tab you are looking at', async () => {
+  const browser = makeBrowser();
+  openTab(browser, { pathname: '/problems/two-sum/', question: { ...SKYLINE, questionFrontendId: '1', title: 'Two Sum', difficulty: 'Easy', topicTags: [] }, visible: true });
+  await settle();
+  openTab(browser, { pathname: '/problems/the-skyline-problem/', visible: false });
+  await settle();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1].details, '1. Two Sum');
+});
+
+test('selecting a tab makes it the owner of the card', async () => {
+  const browser = makeBrowser();
+  const two = { ...SKYLINE, questionFrontendId: '1', title: 'Two Sum', difficulty: 'Easy', topicTags: [] };
+  openTab(browser, { pathname: '/problems/two-sum/', question: two, visible: true });
+  await settle();
+  const sky = openTab(browser, { pathname: '/problems/the-skyline-problem/', visible: false });
+  await settle();
+  sky.setVisible(true);
+  await sky.tick();
+  await settle();
+  assert.equal(calls.at(-1)[1].details, '218. The Skyline Problem');
+});
+
+test('a tab that does not own the card cannot clear it', async () => {
+  const browser = makeBrowser();
+  openTab(browser, { pathname: '/problems/the-skyline-problem/', visible: true });
+  await settle();
+  const other = openTab(browser, { pathname: '/problems/two-sum/', visible: false });
+  await settle();
+  other.location.pathname = '/problemset/'; // leaves its problem, which sends a clear
+  await other.tick();
+  await settle();
+  assert.equal(calls.filter((c) => c[0] === 'clear').length, 0);
+  assert.equal(calls.at(-1)[1].details, '218. The Skyline Problem');
+});
+
+test('when the owner leaves, a background problem tab takes over', async () => {
+  const clock = { t: Date.now(), now() { return this.t; } };
+  const browser = makeBrowser({ clock });
+  const owner = openTab(browser, { pathname: '/problems/the-skyline-problem/', visible: true });
+  await settle();
+  const two = { ...SKYLINE, questionFrontendId: '1', title: 'Two Sum', difficulty: 'Easy', topicTags: [] };
+  const background = openTab(browser, { pathname: '/problems/two-sum/', question: two, visible: false });
+  await settle();
+
+  owner.location.pathname = '/problemset/';
+  await owner.tick();
+  await settle();
+  assert.deepEqual(calls.at(-1), ['clear']);
+
+  clock.t += 25_000; // the background tab's next heartbeat
+  await background.tick();
+  await settle();
+  assert.equal(calls.at(-1)[1].details, '1. Two Sum');
+});
+
+test('an owner that stopped sending can be replaced by a background tab', async () => {
+  const clock = { t: Date.now(), now() { return this.t; } };
+  const browser = makeBrowser({ clock });
+  openTab(browser, { pathname: '/problems/the-skyline-problem/', visible: true });
+  await settle();
+  const two = { ...SKYLINE, questionFrontendId: '1', title: 'Two Sum', difficulty: 'Easy', topicTags: [] };
+  const background = openTab(browser, { pathname: '/problems/two-sum/', question: two, visible: false });
+  await settle();
+  assert.equal(calls.length, 1); // ignored while the owner is fresh
+
+  clock.t += 100_000; // the owner tab went away without a clear (crash, tab discarded)
+  await background.tick();
+  await settle();
+  assert.equal(calls.at(-1)[1].details, '1. Two Sum');
 });

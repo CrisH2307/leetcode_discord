@@ -47,6 +47,11 @@ Progress is read by `node scripts/rpi-status.mjs`.
 - [x] `detailsUrl` and `largeImageUrl` set to the problem URL, `LINK_PROBLEM` switch
 - [ ] Confirm the title is clickable on the real Discord card (needs the user's machine)
 
+## Stability
+
+- [x] Keep the card while the tab is hidden, tab ownership, reconnect on a dead Discord socket, safer service restart
+- [ ] Confirm no drops over a normal study session (needs the user's machine)
+
 ## Later
 
 - [ ] Detect "Accepted" and show a solved state
