@@ -35,6 +35,12 @@ function toActivity(p, assets) {
     activity.largeImageKey = assets.largeImageKey;
     activity.largeImageText = assets.largeImageText || 'LeetCode';
   }
+  // Makes the title (and the image) on the card open the problem. Needs a Discord client that
+  // supports clickable activity text; older clients just show plain text.
+  if (assets.linkProblem !== false && p.url) {
+    activity.detailsUrl = p.url;
+    if (assets.largeImageKey) activity.largeImageUrl = p.url;
+  }
   if (assets.showButton && p.url) activity.buttons = [{ label: 'Open problem', url: p.url }];
   return activity;
 }

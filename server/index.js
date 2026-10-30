@@ -38,6 +38,7 @@ const app = createApp({
     largeImageKey: process.env.LARGE_IMAGE_KEY ?? 'leetcode',
     largeImageText: process.env.LARGE_IMAGE_TEXT ?? 'LeetCode',
     showButton: process.env.SHOW_BUTTON === '1',
+    linkProblem: process.env.LINK_PROBLEM !== '0',
   },
 });
 

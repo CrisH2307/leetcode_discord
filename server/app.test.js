@@ -172,3 +172,34 @@ test('oversized body is rejected', async () => {
   assert.notEqual(res.status, 200);
   assert.equal(calls.length, 0);
 });
+
+test('the title and image link to the problem', async () => {
+  await start();
+  await request('POST', '/presence', payload());
+  const activity = calls[0][1];
+  assert.equal(activity.detailsUrl, 'https://leetcode.com/problems/two-sum/');
+  assert.equal(activity.largeImageUrl, 'https://leetcode.com/problems/two-sum/');
+});
+
+test('linking can be turned off', async () => {
+  await start({ assets: { largeImageKey: 'leetcode', linkProblem: false } });
+  await request('POST', '/presence', payload());
+  assert.equal(calls[0][1].detailsUrl, undefined);
+  assert.equal(calls[0][1].largeImageUrl, undefined);
+});
+
+test('no link is added without a valid problem url (hidden title, foreign host)', async () => {
+  await start();
+  await request('POST', '/presence', { ...payload(), url: undefined });
+  assert.equal(calls[0][1].detailsUrl, undefined);
+  await request('POST', '/clear');
+  await request('POST', '/presence', { ...payload(), url: 'https://evil.example/problems/two-sum/' });
+  assert.equal(calls.at(-1)[1].detailsUrl, undefined);
+});
+
+test('without an image asset only the title is linked', async () => {
+  await start({ assets: {} });
+  await request('POST', '/presence', payload());
+  assert.equal(calls[0][1].detailsUrl, 'https://leetcode.com/problems/two-sum/');
+  assert.equal(calls[0][1].largeImageUrl, undefined);
+});
