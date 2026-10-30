@@ -42,6 +42,11 @@ Progress is read by `node scripts/rpi-status.mjs`.
 - [ ] Confirm `topicTags { name }` on the live LeetCode GraphQL
 - [x] Popup diagnostics: version, site access, Grant access button
 
+## Links
+
+- [x] `detailsUrl` and `largeImageUrl` set to the problem URL, `LINK_PROBLEM` switch
+- [ ] Confirm the title is clickable on the real Discord card (needs the user's machine)
+
 ## Later
 
 - [ ] Detect "Accepted" and show a solved state

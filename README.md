@@ -6,7 +6,7 @@ Shows the problem you are working on as your Discord activity:
 Playing
 LeetCode
 218. The Skyline Problem
-Hard - Heap/PQ, Segment Tree, BIT
+Hard · Heap/PQ, Segment Tree, BIT
 00:12:41
 ```
 
@@ -111,6 +111,7 @@ Chromium browsers keep unpacked extensions across restarts, so load the `extensi
 - Contest pages are ignored on purpose.
 - Hide problem title shows "Solving a problem" plus the difficulty.
 - Topics: the second line is the difficulty plus up to 3 of the problem's LeetCode tags, kept within about 30 characters so Discord does not cut the line. Core tags (Heap, Segment Tree, DP, Two Pointers, ...) come first, generic ones (Array, String, Math, ...) only fill the gap, and long names are shortened (`Heap (Priority Queue)` becomes `Heap/PQ`). The short names, the core list and the limits are constants at the top of `extension/background.js`. Turn it off with the "Show topics" toggle.
+- The problem title and the card image are clickable and open the LeetCode problem (`LINK_PROBLEM=0` in `server/.env` turns it off). They need a Discord client that supports clickable activity text, and hide title removes the link. If it is not clickable for you, use the button below.
 - `SHOW_BUTTON=1` adds an "Open problem" button that other people can see.
 
 ## Security
@@ -135,7 +136,7 @@ After updating the files, restart the server and press the reload icon on the ex
 ## Development
 
 ```bash
-npm test          # 47 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
+npm test          # 51 tests: server API, real extension scripts end to end (browser APIs stubbed), service and packaging helpers
 npm run rpi       # progress from docs/rpi/plan.md
 ```
 

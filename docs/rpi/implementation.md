@@ -100,3 +100,12 @@ The popup (v0.1.3) showed Site access granted and NetworkError on every request,
 Change: `server/index.js` now logs `Stopping (SIGTERM|SIGINT)` and logs unhandled rejections instead of dying. Next time a silent stop will explain itself. Recovery is `npm run service:install`.
 
 Known behavior to decide on: the content script only sends heartbeats while the tab is visible, and Firefox reports a fully covered window as hidden. After 90 s without a heartbeat the card clears (seen at 8:56:53 PM).
+
+## 2026-10-29: link the problem on the card
+
+Request (from a friend's suggestion): make the question linkable.
+
+- `server/app.js`: when the payload has a valid problem URL (already restricted to `https://leetcode.com/problems/<slug>/`), the activity gets `detailsUrl` (title becomes clickable) and, if an image asset is set, `largeImageUrl`. `@xhayper/discord-rpc` 1.5.1 maps these to `details_url` and `assets.large_url`.
+- `LINK_PROBLEM=0` in `server/.env` turns it off. Hide title sends no URL, so no link either. `SHOW_BUTTON=1` stays available as the fallback.
+- Tests: 4 new (links present, off switch, no link without a valid URL, title-only without image asset). 51 pass.
+- Not verified: that the user's Discord client renders and opens the links. Needs the user's machine. Requires `npm run service:install` to restart the server.
